@@ -60,9 +60,10 @@ export default function LobbyPage({ params }) {
   const [myPlayerId, setMyPlayerId] = useState(null)
   const [notFound, setNotFound] = useState(false)
 
+  const [savedProfile, setSavedProfile] = useState(null)
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
-  const [displayName, setDisplayName] = useState("")
+  const [username, setUsername] = useState("")
   const [joining, setJoining] = useState(false)
   const [joinError, setJoinError] = useState("")
 
@@ -73,19 +74,16 @@ export default function LobbyPage({ params }) {
 
   useEffect(() => {
     const saved = localStorage.getItem(`cc:${code}:playerId`)
-    if (saved) { setMyPlayerId(saved); loadState(); return }
+    if (saved) setMyPlayerId(saved)
 
     const profile = loadProfile()
-    if (profile?.username) {
-      setFirstName(profile.firstName ?? "")
-      setLastName(profile.lastName ?? "")
-      setDisplayName(profile.username)
-      autoJoin(profile)
-      return
+    if (profile) {
+      if (profile.username) saveProfile(profile)
+      setSavedProfile(profile)
+      setUsername(profile.username || "")
     }
 
     loadState()
-
     const poll = setInterval(loadState, 1500)
     const channel = supabase.channel(`cc-lobby-${code}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "cc_players", filter: `game_code=eq.${code}` }, loadState)
@@ -105,49 +103,30 @@ export default function LobbyPage({ params }) {
     if (g.phase !== "lobby") router.push(`/${code}/play`)
   }
 
-  async function autoJoin(profile) {
-    setJoining(true)
-    const { data: gameRow } = await supabase.from("cc_games").select("phase").eq("code", code).single()
-    if (!gameRow) { setNotFound(true); setJoining(false); return }
-    if (gameRow.phase !== "lobby") { router.push(`/${code}/play`); return }
-    const { data, error } = await supabase
-      .from("cc_players")
-      .insert({ game_code: code, first_name: profile.firstName, last_name: profile.lastName, name: profile.username })
-      .select("id")
-      .single()
-    if (error) { setJoining(false); loadState(); return }
-    saveProfile(profile)
-    localStorage.setItem(`cc:${code}:playerId`, data.id)
-    setMyPlayerId(data.id)
-    setJoining(false)
-    loadState()
-  }
-
   async function onJoin() {
     if (joining) return
-    const fn = firstName.trim()
-    const ln = lastName.trim()
-    const dn = displayName.trim() || `${fn} ${ln}`.trim()
-    if (!fn || !ln) { setJoinError("Enter your first and last name."); return }
-
-    const taken = players.some(p => p.name.toLowerCase() === dn.toLowerCase() && p.id !== myPlayerId)
-    if (taken) { setJoinError("That username is taken."); return }
-
+    const trimmedUsername = username.trim()
+    const trimmedFirst = (savedProfile?.firstName || firstName).trim()
+    const trimmedLast = (savedProfile?.lastName || lastName).trim()
+    if (!trimmedUsername || !trimmedFirst || !trimmedLast) return
     setJoining(true)
     setJoinError("")
 
+    const taken = players.some(p => p.name.toLowerCase() === trimmedUsername.toLowerCase())
+    if (taken) { setJoinError("That username is taken."); setJoining(false); return }
+
     const { data, error } = await supabase
       .from("cc_players")
-      .insert({ game_code: code, first_name: fn, last_name: ln, name: dn })
+      .insert({ game_code: code, first_name: trimmedFirst, last_name: trimmedLast, name: trimmedUsername })
       .select("id")
       .single()
     if (error) { setJoinError(error.message); setJoining(false); return }
 
-    const profile = { firstName: fn, lastName: ln, username: dn }
-    saveProfile(profile)
+    const newProfile = { firstName: trimmedFirst, lastName: trimmedLast, username: trimmedUsername }
+    saveProfile(newProfile)
+    setSavedProfile(newProfile)
     localStorage.setItem(`cc:${code}:playerId`, data.id)
     setMyPlayerId(data.id)
-    setJoining(false)
   }
 
   async function onStart() {
@@ -219,32 +198,23 @@ export default function LobbyPage({ params }) {
           <div>
             <div style={{ fontSize: 17, fontWeight: 800, color: "rgba(255,255,255,0.85)", marginBottom: 12 }}>Join Game</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <input
-                type="text"
-                placeholder="First name"
-                value={firstName}
-                onChange={e => setFirstName(e.target.value)}
-                style={inputStyle}
-              />
-              <input
-                type="text"
-                placeholder="Last name"
-                value={lastName}
-                onChange={e => setLastName(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && onJoin()}
-                style={inputStyle}
-              />
+              {!savedProfile?.firstName && (
+                <>
+                  <input type="text" placeholder="First name" value={firstName} onChange={e => setFirstName(e.target.value)} style={inputStyle} />
+                  <input type="text" placeholder="Last name" value={lastName} onChange={e => setLastName(e.target.value)} style={inputStyle} />
+                </>
+              )}
               <input
                 type="text"
                 placeholder="Display Name"
-                value={displayName}
-                onChange={e => setDisplayName(e.target.value)}
+                value={username}
+                onChange={e => setUsername(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && onJoin()}
                 style={inputStyle}
               />
               <button
                 onClick={onJoin}
-                disabled={joining}
+                disabled={joining || !username.trim() || (!savedProfile?.firstName && (!firstName.trim() || !lastName.trim()))}
                 style={{ background: YELLOW, color: "#000", fontSize: 20, fontWeight: 900, padding: "18px", marginTop: 4 }}
               >
                 {joining ? "Joining…" : "Join"}
