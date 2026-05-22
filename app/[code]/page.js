@@ -73,13 +73,15 @@ export default function LobbyPage({ params }) {
 
   useEffect(() => {
     const saved = localStorage.getItem(`cc:${code}:playerId`)
-    if (saved) setMyPlayerId(saved)
+    if (saved) { setMyPlayerId(saved); loadState(); return }
 
     const profile = loadProfile()
     if (profile?.username) {
       setFirstName(profile.firstName ?? "")
       setLastName(profile.lastName ?? "")
       setDisplayName(profile.username)
+      autoJoin(profile)
+      return
     }
 
     loadState()
@@ -101,6 +103,24 @@ export default function LobbyPage({ params }) {
     setGame(g)
     setPlayers(ps ?? [])
     if (g.phase !== "lobby") router.push(`/${code}/play`)
+  }
+
+  async function autoJoin(profile) {
+    setJoining(true)
+    const { data: gameRow } = await supabase.from("cc_games").select("phase").eq("code", code).single()
+    if (!gameRow) { setNotFound(true); setJoining(false); return }
+    if (gameRow.phase !== "lobby") { router.push(`/${code}/play`); return }
+    const { data, error } = await supabase
+      .from("cc_players")
+      .insert({ game_code: code, first_name: profile.firstName, last_name: profile.lastName, name: profile.username })
+      .select("id")
+      .single()
+    if (error) { setJoining(false); loadState(); return }
+    saveProfile(profile)
+    localStorage.setItem(`cc:${code}:playerId`, data.id)
+    setMyPlayerId(data.id)
+    setJoining(false)
+    loadState()
   }
 
   async function onJoin() {
