@@ -89,7 +89,7 @@ function AnswerTextarea({ value, onChange, placeholder, disabled }) {
   )
 }
 
-function WaitingList({ players, doneIds, doneLabel = "Ready", waitLabel = "Writing…" }) {
+function WaitingList({ players, doneIds, doneLabel = "Ready", waitLabel = "Writing…", typingPlayerIds }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
       {players.map(p => {
@@ -97,7 +97,10 @@ function WaitingList({ players, doneIds, doneLabel = "Ready", waitLabel = "Writi
         return (
           <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 12, background: MID, padding: "12px 16px" }}>
             <div style={{ width: 10, height: 10, borderRadius: "50%", background: done ? GREEN : "rgba(255,255,255,0.25)", flexShrink: 0 }} />
-            <span style={{ fontSize: 16, fontWeight: 600, flex: 1 }}>{p.name}</span>
+            <span style={{ fontSize: 16, fontWeight: 600, flex: 1 }}>
+              {p.name}
+              {!done && typingPlayerIds?.has(p.id) && <span style={{ fontSize: 14, marginLeft: 6 }}>💬</span>}
+            </span>
             <span style={{ fontSize: 13, color: "rgba(255,255,255,0.65)", fontWeight: 600 }}>{done ? doneLabel : waitLabel}</span>
           </div>
         )
@@ -136,6 +139,9 @@ export default function PlayPage({ params }) {
   // stable shuffle for voting answers
   const shuffledRef = useRef(null)
   const shuffledRoundRef = useRef(-1)
+  const channelRef = useRef(null)
+  const typingTimerRef = useRef(null)
+  const [presenceState, setPresenceState] = useState({})
 
   useEffect(() => {
     const id = localStorage.getItem(`cc:${code}:playerId`)
@@ -149,7 +155,13 @@ export default function PlayPage({ params }) {
       .on("postgres_changes", { event: "*", schema: "public", table: "cc_players", filter: `game_code=eq.${code}` }, loadState)
       .on("postgres_changes", { event: "*", schema: "public", table: "cc_answers", filter: `game_code=eq.${code}` }, loadState)
       .on("postgres_changes", { event: "*", schema: "public", table: "cc_votes", filter: `game_code=eq.${code}` }, loadState)
-      .subscribe()
+      .on("presence", { event: "sync" }, () => setPresenceState({ ...channel.presenceState() }))
+      .subscribe(async status => {
+        if (status === "SUBSCRIBED" && myId) {
+          await channel.track({ playerId: myId, typing: false })
+        }
+      })
+    channelRef.current = channel
     return () => { clearInterval(poll); document.removeEventListener("visibilitychange", handleVisibility); supabase.removeChannel(channel) }
   }, [code])
 
@@ -175,6 +187,21 @@ export default function PlayPage({ params }) {
     setAnswers(an ?? [])
     setVotes(vs ?? [])
   }
+
+  function trackTyping() {
+    if (!channelRef.current || !myId) return
+    channelRef.current.track({ playerId: myId, typing: true })
+    clearTimeout(typingTimerRef.current)
+    typingTimerRef.current = setTimeout(() => {
+      if (channelRef.current) channelRef.current.track({ playerId: myId, typing: false })
+    }, 3000)
+  }
+
+  const typingPlayerIds = new Set(
+    Object.values(presenceState).flatMap(presences =>
+      presences.filter(p => p.typing && p.playerId !== myId).map(p => p.playerId)
+    )
+  )
 
   if (!game || !myId) {
     return (
@@ -229,7 +256,7 @@ export default function PlayPage({ params }) {
               <p style={{ fontSize: 16, color: "rgba(255,255,255,0.65)" }}>Waiting for everyone else…</p>
             </div>
             <Section label="Waiting for everyone…">
-              <WaitingList players={players} doneIds={submittedIds} />
+              <WaitingList players={players} doneIds={submittedIds} typingPlayerIds={typingPlayerIds} />
             </Section>
           </div>
         </div>
@@ -263,7 +290,7 @@ export default function PlayPage({ params }) {
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <AnswerTextarea
               value={myQuestion}
-              onChange={setMyQuestion}
+              onChange={v => { setMyQuestion(v); trackTyping() }}
               placeholder={`Your question for ${myTarget?.name ?? "them"}…`}
             />
             <PrimaryBtn
@@ -276,7 +303,7 @@ export default function PlayPage({ params }) {
           </div>
 
           <Section label="Waiting for everyone…">
-            <WaitingList players={players} doneIds={submittedIds} />
+            <WaitingList players={players} doneIds={submittedIds} typingPlayerIds={typingPlayerIds} />
           </Section>
         </div>
       </div>
@@ -303,7 +330,7 @@ export default function PlayPage({ params }) {
               <p style={{ fontSize: 16, color: "rgba(255,255,255,0.65)" }}>Answer submitted. Waiting for everyone…</p>
             </div>
             <Section label="Waiting for everyone…">
-              <WaitingList players={players} doneIds={answeredIds} />
+              <WaitingList players={players} doneIds={answeredIds} typingPlayerIds={typingPlayerIds} />
             </Section>
           </div>
         </div>
@@ -339,7 +366,7 @@ export default function PlayPage({ params }) {
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <AnswerTextarea
                 value={myAnswer}
-                onChange={setMyAnswer}
+                onChange={v => { setMyAnswer(v); trackTyping() }}
                 placeholder="Your answer…"
               />
               <PrimaryBtn
@@ -352,7 +379,7 @@ export default function PlayPage({ params }) {
               />
             </div>
             <Section label="Waiting for everyone…">
-              <WaitingList players={players} doneIds={answeredIds} />
+              <WaitingList players={players} doneIds={answeredIds} typingPlayerIds={typingPlayerIds} />
             </Section>
           </div>
         </div>
@@ -375,7 +402,7 @@ export default function PlayPage({ params }) {
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <AnswerTextarea
               value={myAnswer}
-              onChange={setMyAnswer}
+              onChange={v => { setMyAnswer(v); trackTyping() }}
               placeholder={`Fake ${roundTarget?.name}'s answer…`}
             />
             <PrimaryBtn
@@ -388,7 +415,7 @@ export default function PlayPage({ params }) {
             />
           </div>
           <Section label="Waiting for everyone…">
-            <WaitingList players={players} doneIds={answeredIds} />
+            <WaitingList players={players} doneIds={answeredIds} typingPlayerIds={typingPlayerIds} />
           </Section>
         </div>
       </div>
