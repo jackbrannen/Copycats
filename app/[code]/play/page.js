@@ -109,19 +109,25 @@ function AnswerTextarea({ value, onChange, placeholder, disabled }) {
   )
 }
 
-function WaitingList({ players, doneIds, doneLabel = "Ready", waitLabel = "Writing…", typingPlayerIds }) {
+function WaitingList({ players, doneIds, myPlayerId, onPoke, doneLabel = "Ready", waitLabel = "Writing…", typingPlayerIds }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
       {players.map(p => {
         const done = doneIds.includes(p.id)
+        const isMe = p.id === myPlayerId
         return (
           <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 12, background: MID, padding: "12px 16px" }}>
             <div style={{ width: 10, height: 10, borderRadius: "50%", background: done ? GREEN : "rgba(255,255,255,0.25)", flexShrink: 0 }} />
             <span style={{ fontSize: 16, fontWeight: 600, flex: 1 }}>
               {p.name}
+              {isMe && <span style={{ fontSize: 12, opacity: 0.65, marginLeft: 6 }}>you</span>}
               {!done && typingPlayerIds?.has(p.id) && <span style={{ fontSize: 14, marginLeft: 6 }}>💬</span>}
             </span>
-            <span style={{ fontSize: 13, color: "rgba(255,255,255,0.65)", fontWeight: 600 }}>{done ? doneLabel : waitLabel}</span>
+            {!done && !isMe && onPoke ? (
+              <button onClick={() => onPoke(p.name)} style={{ background: "transparent", color: "rgba(255,255,255,0.55)", fontSize: 20, padding: "0 4px", lineHeight: 1 }}>👉</button>
+            ) : (
+              <span style={{ fontSize: 13, color: "rgba(255,255,255,0.65)", fontWeight: 600 }}>{done ? doneLabel : waitLabel}</span>
+            )}
           </div>
         )
       })}
@@ -235,6 +241,11 @@ export default function PlayPage({ params }) {
 
   const me = players.find(p => p.id === myId)
 
+  async function sendInlinePoke(targetName) {
+    if (!me) return
+    await supabase.from("pokes").insert({ room_code: code, from_player: me.name, to_player: targetName, message: "👉" })
+  }
+
   // ── PokeSystem (always mounted for notifications) ──────────────────────────
   const pokeSystemNode = me ? (
     <PokeSystem
@@ -294,7 +305,7 @@ export default function PlayPage({ params }) {
               <p style={{ fontSize: 16, color: "rgba(255,255,255,0.65)" }}>Waiting for everyone else…</p>
             </div>
             <Section label="Waiting for everyone…">
-              <WaitingList players={players} doneIds={submittedIds} typingPlayerIds={typingPlayerIds} />
+              <WaitingList players={players} doneIds={submittedIds} myPlayerId={myId} onPoke={sendInlinePoke} typingPlayerIds={typingPlayerIds} />
             </Section>
           </div>
         </div>
@@ -342,7 +353,7 @@ export default function PlayPage({ params }) {
           </div>
 
           <Section label="Waiting for everyone…">
-            <WaitingList players={players} doneIds={submittedIds} typingPlayerIds={typingPlayerIds} />
+            <WaitingList players={players} doneIds={submittedIds} myPlayerId={myId} onPoke={sendInlinePoke} typingPlayerIds={typingPlayerIds} />
           </Section>
         </div>
       </div>
@@ -382,7 +393,7 @@ export default function PlayPage({ params }) {
               <p style={{ fontSize: 16, color: "rgba(255,255,255,0.65)" }}>Waiting for fake answers…</p>
             )}
             <Section label="Status">
-              <WaitingList players={players} doneIds={answeredIds} typingPlayerIds={typingPlayerIds} />
+              <WaitingList players={players} doneIds={answeredIds} myPlayerId={myId} onPoke={sendInlinePoke} typingPlayerIds={typingPlayerIds} />
             </Section>
           </div>
         </div>
@@ -436,7 +447,7 @@ export default function PlayPage({ params }) {
               {!!answerError && <p style={{ fontSize: 14, fontWeight: 600, color: YELLOW }}>{answerError}</p>}
             </div>
             <Section label="Waiting for everyone…">
-              <WaitingList players={players} doneIds={answeredIds} typingPlayerIds={typingPlayerIds} />
+              <WaitingList players={players} doneIds={answeredIds} myPlayerId={myId} onPoke={sendInlinePoke} typingPlayerIds={typingPlayerIds} />
             </Section>
           </div>
         </div>
@@ -474,7 +485,7 @@ export default function PlayPage({ params }) {
             {!!answerError && <p style={{ fontSize: 14, fontWeight: 600, color: YELLOW }}>{answerError}</p>}
           </div>
           <Section label="Waiting for everyone…">
-            <WaitingList players={players} doneIds={answeredIds} typingPlayerIds={typingPlayerIds} />
+            <WaitingList players={players} doneIds={answeredIds} myPlayerId={myId} onPoke={sendInlinePoke} typingPlayerIds={typingPlayerIds} />
           </Section>
         </div>
       </div>
@@ -516,7 +527,7 @@ export default function PlayPage({ params }) {
               </div>
             </Section>
             <Section label="Waiting for votes…">
-              <WaitingList players={players.filter(p => p.id !== myId)} doneIds={votedIds} doneLabel="Voted" waitLabel="Deciding…" />
+              <WaitingList players={players.filter(p => p.id !== myId)} doneIds={votedIds} myPlayerId={myId} onPoke={sendInlinePoke} doneLabel="Voted" waitLabel="Deciding…" />
             </Section>
           </div>
         </div>
@@ -533,7 +544,7 @@ export default function PlayPage({ params }) {
               <p style={{ fontSize: 16, color: "rgba(255,255,255,0.65)" }}>Waiting for everyone…</p>
             </div>
             <Section label="Waiting for votes…">
-              <WaitingList players={players.filter(p => p.id !== roundTarget?.id)} doneIds={votedIds} doneLabel="Voted" waitLabel="Deciding…" />
+              <WaitingList players={players.filter(p => p.id !== roundTarget?.id)} doneIds={votedIds} myPlayerId={myId} onPoke={sendInlinePoke} doneLabel="Voted" waitLabel="Deciding…" />
             </Section>
           </div>
         </div>
