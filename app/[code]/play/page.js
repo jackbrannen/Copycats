@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "../../../lib/supabase"
+import PokeSystem, { FOOTER_H } from "../../../components/PokeSystem"
 import { useSubmitNudge } from "../../../lib/useSubmitNudge"
 
 const BG         = "#5C2D8C"
@@ -130,6 +131,9 @@ function WaitingList({ players, doneIds, doneLabel = "Ready", waitLabel = "Writi
 
 // ─── main ───────────────────────────────────────────────────────────────────
 
+
+const POKE_COLORS = { dark: "#3D1A70", mid: "#4A228C", wl: "#7A3AAA", yellow: "#FBDF54", notifBg: "#2D1050" }
+const BOTTOM_PAD = `calc(${FOOTER_H + 8}px + env(safe-area-inset-bottom))`
 export default function PlayPage({ params }) {
   const code = params.code
   const router = useRouter()
@@ -230,11 +234,28 @@ export default function PlayPage({ params }) {
   }
 
   const me = players.find(p => p.id === myId)
+
+  // ── PokeSystem (always mounted for notifications) ──────────────────────────
+  const pokeSystemNode = me ? (
+    <PokeSystem
+      colors={POKE_COLORS}
+      roomCode={code}
+      currentPlayer={me.name}
+      allPlayers={players.map(p => p.name)}
+      playerDetails={players.map(p => ({ name: p.name, firstName: p.first_name, lastName: p.last_name }))}
+      gamePhase={game?.phase}
+      onResetToLobby={async () => { await supabase.rpc("cc_reset_to_lobby", { p_code: code }) }}
+    />
+  ) : null
+
   if (!me) {
     return (
+      <>
       <div style={{ minHeight: "100dvh", background: BG, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <p style={{ color: "rgba(255,255,255,0.65)", fontSize: 18, fontWeight: 600 }}>Loading…</p>
       </div>
+        {pokeSystemNode}
+      </>
     )
   }
 
@@ -292,6 +313,7 @@ export default function PlayPage({ params }) {
     }
 
     return (
+      <>
       <div style={{ minHeight: "100dvh", background: BG, display: "flex", flexDirection: "column" }}>
         <TopBar>Write Your Questions</TopBar>
         <div style={{ flex: 1, padding: "24px 20px", display: "flex", flexDirection: "column", gap: 20, maxWidth: 480, width: "100%", margin: "0 auto" }}>
@@ -324,6 +346,8 @@ export default function PlayPage({ params }) {
           </Section>
         </div>
       </div>
+        {pokeSystemNode}
+      </>
     )
   }
 
@@ -420,6 +444,7 @@ export default function PlayPage({ params }) {
     }
 
     return (
+      <>
       <div style={{ minHeight: "100dvh", background: BG, display: "flex", flexDirection: "column" }}>
         <TopBar>Round {current_round + 1} of {players.length}</TopBar>
         <div style={{ flex: 1, padding: "24px 20px", display: "flex", flexDirection: "column", gap: 20, maxWidth: 480, width: "100%", margin: "0 auto" }}>
@@ -453,6 +478,8 @@ export default function PlayPage({ params }) {
           </Section>
         </div>
       </div>
+        {pokeSystemNode}
+      </>
     )
   }
 
@@ -526,6 +553,7 @@ export default function PlayPage({ params }) {
     }
 
     return (
+      <>
       <div style={{ minHeight: "100dvh", background: BG, display: "flex", flexDirection: "column" }}>
         <TopBar>Round {current_round + 1} of {players.length}</TopBar>
         <div style={{ flex: 1, padding: "24px 20px", display: "flex", flexDirection: "column", gap: 20, maxWidth: 480, width: "100%", margin: "0 auto" }}>
@@ -568,6 +596,8 @@ export default function PlayPage({ params }) {
           />
         </div>
       </div>
+        {pokeSystemNode}
+      </>
     )
   }
 
@@ -606,6 +636,7 @@ export default function PlayPage({ params }) {
     }
 
     return (
+      <>
       <div style={{ minHeight: "100dvh", background: BG, display: "flex", flexDirection: "column" }}>
         <TopBar>Round {current_round + 1} of {players.length} · Results</TopBar>
         <div style={{ flex: 1, padding: "24px 20px", display: "flex", flexDirection: "column", gap: 24, maxWidth: 480, width: "100%", margin: "0 auto", paddingBottom: 100 }}>
@@ -708,7 +739,7 @@ export default function PlayPage({ params }) {
         </div>
 
         {/* Fixed bottom: ready up */}
-        <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, padding: "16px 20px", paddingBottom: "calc(16px + env(safe-area-inset-bottom))", background: BG, borderTop: `1px solid ${DARK}` }}>
+        <div style={{ position: "fixed", bottom: FOOTER_H, left: 0, right: 0, padding: "16px 20px", paddingBottom: "calc(16px + env(safe-area-inset-bottom))", background: BG, borderTop: `1px solid ${DARK}` }}>
           {iReady ? (
             <div style={{ textAlign: "center" }}>
               <p style={{ fontSize: 15, color: "rgba(255,255,255,0.65)", fontWeight: 600 }}>
@@ -730,6 +761,8 @@ export default function PlayPage({ params }) {
           )}
         </div>
       </div>
+        {pokeSystemNode}
+      </>
     )
   }
 
@@ -744,6 +777,7 @@ export default function PlayPage({ params }) {
     }
 
     return (
+      <>
       <div style={{ minHeight: "100dvh", background: BG, display: "flex", flexDirection: "column" }}>
         <div style={{ background: DARK, padding: "20px", textAlign: "center" }}>
           <h1 style={{ fontSize: 36, fontWeight: 900, color: "white" }}>Game Over</h1>
@@ -783,12 +817,17 @@ export default function PlayPage({ params }) {
           </button>
         </div>
       </div>
+        {pokeSystemNode}
+      </>
     )
   }
 
   return (
+    <>
     <div style={{ minHeight: "100dvh", background: BG, display: "flex", alignItems: "center", justifyContent: "center" }}>
       <p style={{ color: "rgba(255,255,255,0.65)", fontSize: 18, fontWeight: 600 }}>Loading…</p>
     </div>
+      {pokeSystemNode}
+    </>
   )
 }
