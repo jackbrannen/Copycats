@@ -84,12 +84,14 @@ export default function LobbyPage({ params }) {
     }
 
     loadState()
-    const poll = setInterval(loadState, 1500)
+    let poll = setInterval(loadState, 5000)
+    function handleVisibility() { clearInterval(poll); if (!document.hidden) { loadState(); poll = setInterval(loadState, 5000) } }
+    document.addEventListener("visibilitychange", handleVisibility)
     const channel = supabase.channel(`cc-lobby-${code}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "cc_players", filter: `game_code=eq.${code}` }, loadState)
       .on("postgres_changes", { event: "*", schema: "public", table: "cc_games", filter: `code=eq.${code}` }, loadState)
       .subscribe()
-    return () => { clearInterval(poll); supabase.removeChannel(channel) }
+    return () => { clearInterval(poll); document.removeEventListener("visibilitychange", handleVisibility); supabase.removeChannel(channel) }
   }, [code])
 
   async function loadState() {
