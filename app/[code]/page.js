@@ -70,6 +70,7 @@ export default function LobbyPage({ params }) {
 
   const [starting, setStarting] = useState(false)
   const [startError, setStartError] = useState("")
+  const [confirmingStart, setConfirmingStart] = useState(false)
 
   const [inviteCopied, setInviteCopied] = useState(false)
   const nudgeJoin = useSubmitNudge(username, !!myPlayerId)
@@ -275,7 +276,7 @@ export default function LobbyPage({ params }) {
               All players in?
             </div>
             <button
-              onClick={onStart}
+              onClick={() => setConfirmingStart(true)}
               disabled={starting || !canStart}
               style={{ background: YELLOW, color: "#000", fontSize: 22, fontWeight: 900, padding: "20px", width: "100%" }}
             >
@@ -287,6 +288,51 @@ export default function LobbyPage({ params }) {
           </div>
         )}
       </div>
+
+      {/* Confirm start modal */}
+      {confirmingStart && (
+        <div
+          onClick={() => setConfirmingStart(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, zIndex: 100 }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ background: MID, width: "100%", maxWidth: 400, padding: "28px 24px" }}
+          >
+            <h2 style={{ fontSize: 22, fontWeight: 900, color: "white", marginBottom: 8 }}>Start the game?</h2>
+            <p style={{ fontSize: 15, color: "white", opacity: 0.75, fontWeight: 600, marginBottom: 20 }}>
+              Everyone writes a question for their assigned player — are all players in?
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 3, marginBottom: 24 }}>
+              {players.map((p, i) => (
+                <div key={p.id} style={{ display: "flex" }}>
+                  <div style={{ padding: "10px 0", minWidth: 40, flexShrink: 0, background: DARK, fontSize: 15, fontWeight: 900, color: "white", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    {i + 1}
+                  </div>
+                  <div style={{ padding: "10px 14px", flex: 1, background: WARM_LIGHT, display: "flex", alignItems: "center" }}>
+                    <span style={{ fontSize: 16, fontWeight: 700, color: "white" }}>
+                      {p.name}
+                      {p.id === myPlayerId && <span style={{ fontSize: 12, opacity: 0.65, marginLeft: 6 }}>you</span>}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => setConfirmingStart(false)} style={{ flex: 1, background: WARM_LIGHT, color: "white", fontSize: 17, fontWeight: 800, padding: "16px" }}>
+                Cancel
+              </button>
+              <button
+                onClick={() => { setConfirmingStart(false); onStart() }}
+                disabled={starting}
+                style={{ flex: 2, background: YELLOW, color: "#000", fontSize: 17, fontWeight: 900, padding: "16px" }}
+              >
+                {starting ? "Starting…" : "Start Game"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
