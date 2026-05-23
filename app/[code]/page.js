@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "../../lib/supabase"
+import { useSubmitNudge } from "../../lib/useSubmitNudge"
 
 const BG         = "#5C2D8C"
 const YELLOW     = "#FBDF54"
@@ -71,6 +72,7 @@ export default function LobbyPage({ params }) {
   const [startError, setStartError] = useState("")
 
   const [inviteCopied, setInviteCopied] = useState(false)
+  const nudgeJoin = useSubmitNudge(username, !!myPlayerId)
 
   useEffect(() => {
     const saved = localStorage.getItem(`cc:${code}:playerId`)
@@ -217,7 +219,7 @@ export default function LobbyPage({ params }) {
               <button
                 onClick={onJoin}
                 disabled={joining || !username.trim() || (!savedProfile?.firstName && (!firstName.trim() || !lastName.trim()))}
-                style={{ background: YELLOW, color: "#000", fontSize: 20, fontWeight: 900, padding: "18px", marginTop: 4 }}
+                style={{ background: YELLOW, color: "#000", fontSize: 20, fontWeight: 900, padding: "18px", marginTop: 4, animation: nudgeJoin ? "nudgePulse 1.5s ease-in-out infinite" : "none" }}
               >
                 {joining ? "Joining…" : "Join"}
               </button>

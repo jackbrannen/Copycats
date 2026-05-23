@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "../../../lib/supabase"
+import { useSubmitNudge } from "../../../lib/useSubmitNudge"
 
 const BG         = "#5C2D8C"
 const YELLOW     = "#FBDF54"
@@ -42,12 +43,12 @@ function BigQuestion({ question }) {
   )
 }
 
-function PrimaryBtn({ onClick, disabled, loading, label, loadingLabel }) {
+function PrimaryBtn({ onClick, disabled, loading, label, loadingLabel, nudge }) {
   return (
     <button
       onClick={onClick}
       disabled={disabled || loading}
-      style={{ background: YELLOW, color: "#000", fontSize: 20, fontWeight: 900, padding: "20px", width: "100%" }}
+      style={{ background: YELLOW, color: "#000", fontSize: 20, fontWeight: 900, padding: "20px", width: "100%", animation: nudge ? "nudgePulse 1.5s ease-in-out infinite" : "none" }}
     >
       {loading ? loadingLabel : label}
     </button>
@@ -202,6 +203,7 @@ export default function PlayPage({ params }) {
   const roundVotes = votes.filter(v => v.round === current_round)
 
   const myAnswerRow = roundAnswers.find(a => a.player_id === myId)
+  const nudgeAnswer = useSubmitNudge(myAnswer, !!myAnswerRow)
   const myVoteRow = roundVotes.find(v => v.voter_id === myId)
 
   // Stable shuffle for voting
@@ -346,6 +348,7 @@ export default function PlayPage({ params }) {
                 disabled={!myAnswer.trim()}
                 label="Submit Answer"
                 loadingLabel="Submitting…"
+                nudge={nudgeAnswer}
               />
             </div>
             <Section label="Waiting for everyone…">
@@ -381,6 +384,7 @@ export default function PlayPage({ params }) {
               disabled={!myAnswer.trim()}
               label="Submit Answer"
               loadingLabel="Submitting…"
+              nudge={nudgeAnswer}
             />
           </div>
           <Section label="Waiting for everyone…">
