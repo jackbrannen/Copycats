@@ -14,6 +14,25 @@ const GREEN      = "#12BAAA"
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
+function seededShuffle(arr, seed) {
+  const items = [...arr]
+  let s = seed >>> 0
+  for (let i = items.length - 1; i > 0; i--) {
+    s = (Math.imul(s, 1664525) + 1013904223) >>> 0
+    const j = s % (i + 1)
+    ;[items[i], items[j]] = [items[j], items[i]]
+  }
+  return items
+}
+
+function codeSeed(code, round) {
+  let h = (round * 2654435761) >>> 0
+  for (let i = 0; i < code.length; i++) {
+    h = (Math.imul(h, 31) + code.charCodeAt(i)) >>> 0
+  }
+  return h
+}
+
 function Section({ label, children, style }) {
   return (
     <div style={style}>
@@ -128,6 +147,7 @@ export default function PlayPage({ params }) {
   // answering
   const [myAnswer, setMyAnswer] = useState("")
   const [answerLoading, setAnswerLoading] = useState(false)
+  const [answerError, setAnswerError] = useState("")
 
   // voting
   const [selectedVote, setSelectedVote] = useState(null)
@@ -136,9 +156,6 @@ export default function PlayPage({ params }) {
   // results ready-up
   const [readyLoading, setReadyLoading] = useState(false)
 
-  // stable shuffle for voting answers
-  const shuffledRef = useRef(null)
-  const shuffledRoundRef = useRef(-1)
   const channelRef = useRef(null)
   const typingTimerRef = useRef(null)
   const [presenceState, setPresenceState] = useState({})
@@ -169,6 +186,7 @@ export default function PlayPage({ params }) {
   useEffect(() => {
     setMyAnswer("")
     setAnswerLoading(false)
+    setAnswerError("")
     setSelectedVote(null)
     setVoteLoading(false)
     setReadyLoading(false)
@@ -233,11 +251,10 @@ export default function PlayPage({ params }) {
   const nudgeAnswer = useSubmitNudge(myAnswer, !!myAnswerRow)
   const myVoteRow = roundVotes.find(v => v.voter_id === myId)
 
-  // Stable shuffle for voting
-  if ((phase === "voting" || phase === "results") && roundAnswers.length > 0 && shuffledRoundRef.current !== current_round) {
-    shuffledRef.current = [...roundAnswers].sort(() => Math.random() - 0.5)
-    shuffledRoundRef.current = current_round
-  }
+  // Deterministic shuffle — same order on all clients for the same round
+  const shuffled = roundAnswers.length > 0
+    ? seededShuffle(roundAnswers, codeSeed(code, current_round))
+    : roundAnswers
 
   // ─── phase: question_writing ────────────────────────────────────────────
 
@@ -316,6 +333,7 @@ export default function PlayPage({ params }) {
     const answeredIds = roundAnswers.map(a => a.player_id)
 
     if (myAnswerRow) {
+      const fakeAnswersSoFar = roundAnswers.filter(a => a.player_id !== myId)
       return (
         <div style={{ minHeight: "100dvh", background: BG, display: "flex", flexDirection: "column" }}>
           <TopBar>Round {current_round + 1} of {players.length}</TopBar>
@@ -326,10 +344,20 @@ export default function PlayPage({ params }) {
               </p>
               <BigQuestion question={roundQuestion} />
             </div>
-            <div style={{ textAlign: "center", padding: "16px 0" }}>
-              <p style={{ fontSize: 16, color: "rgba(255,255,255,0.65)" }}>Answer submitted. Waiting for everyone…</p>
-            </div>
-            <Section label="Waiting for everyone…">
+            {fakeAnswersSoFar.length > 0 ? (
+              <Section label={`Fake answers coming in… (${fakeAnswersSoFar.length} of ${players.length - 1})`}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {fakeAnswersSoFar.map(a => (
+                    <div key={a.player_id} style={{ background: MID, padding: "14px 16px" }}>
+                      <p style={{ fontSize: 16, fontWeight: 500, color: "white", lineHeight: 1.4 }}>{a.answer}</p>
+                    </div>
+                  ))}
+                </div>
+              </Section>
+            ) : (
+              <p style={{ fontSize: 16, color: "rgba(255,255,255,0.65)" }}>Waiting for fake answers…</p>
+            )}
+            <Section label="Status">
               <WaitingList players={players} doneIds={answeredIds} typingPlayerIds={typingPlayerIds} />
             </Section>
           </div>
@@ -340,13 +368,17 @@ export default function PlayPage({ params }) {
     async function submitAnswer() {
       if (answerLoading || !myAnswer.trim()) return
       setAnswerLoading(true)
+      setAnswerError("")
       const { error } = await supabase.rpc("cc_submit_answer", {
         p_code: code,
         p_player_id: myId,
         p_round: current_round,
         p_answer: myAnswer.trim(),
       })
-      if (error) { setAnswerLoading(false) }
+      if (error) {
+        setAnswerError("That answer was already submitted — try something different.")
+        setAnswerLoading(false)
+      }
     }
 
     if (iAmTarget) {
@@ -356,7 +388,7 @@ export default function PlayPage({ params }) {
           <div style={{ flex: 1, padding: "24px 20px", display: "flex", flexDirection: "column", gap: 20, maxWidth: 480, width: "100%", margin: "0 auto" }}>
             <div>
               <p style={{ fontSize: 22, fontWeight: 900, color: "white", marginBottom: 12 }}>
-                {roundQuestioner?.name} wants to know…
+                {roundQuestioner?.name} asked you…
               </p>
               <BigQuestion question={roundQuestion} />
             </div>
@@ -377,6 +409,7 @@ export default function PlayPage({ params }) {
                 loadingLabel="Submitting…"
                 nudge={nudgeAnswer}
               />
+              {!!answerError && <p style={{ fontSize: 14, fontWeight: 600, color: YELLOW }}>{answerError}</p>}
             </div>
             <Section label="Waiting for everyone…">
               <WaitingList players={players} doneIds={answeredIds} typingPlayerIds={typingPlayerIds} />
@@ -413,6 +446,7 @@ export default function PlayPage({ params }) {
               loadingLabel="Submitting…"
               nudge={nudgeAnswer}
             />
+            {!!answerError && <p style={{ fontSize: 14, fontWeight: 600, color: YELLOW }}>{answerError}</p>}
           </div>
           <Section label="Waiting for everyone…">
             <WaitingList players={players} doneIds={answeredIds} typingPlayerIds={typingPlayerIds} />
@@ -426,7 +460,7 @@ export default function PlayPage({ params }) {
 
   if (phase === "voting") {
     const votedIds = roundVotes.map(v => v.voter_id)
-    const shuffled = shuffledRef.current ?? roundAnswers
+    const votableAnswers = shuffled.filter(a => a.player_id !== myId)
 
     if (iAmTarget) {
       return (
@@ -502,7 +536,7 @@ export default function PlayPage({ params }) {
             <p style={{ fontSize: 14, color: "rgba(255,255,255,0.65)", marginBottom: 16 }}>"{roundQuestion}"</p>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {shuffled.map(a => {
+            {votableAnswers.map(a => {
               const selected = selectedVote === a.player_id
               return (
                 <button
@@ -540,7 +574,6 @@ export default function PlayPage({ params }) {
   // ─── phase: results ──────────────────────────────────────────────────────
 
   if (phase === "results") {
-    const shuffled = shuffledRef.current ?? roundAnswers
     const targetAnswer = roundAnswers.find(a => a.player_id === roundTarget?.id)
 
     // Compute round deltas
