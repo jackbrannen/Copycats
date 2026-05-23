@@ -400,10 +400,27 @@ export default function PlayPage({ params }) {
         <div style={{ minHeight: "100dvh", background: BG, display: "flex", flexDirection: "column" }}>
           <TopBar>Round {current_round + 1} of {players.length}</TopBar>
           <div style={{ flex: 1, padding: "24px 20px", display: "flex", flexDirection: "column", gap: 20, maxWidth: 480, width: "100%", margin: "0 auto" }}>
-            <div style={{ textAlign: "center", padding: "32px 0" }}>
-              <p style={{ fontSize: 24, fontWeight: 900, color: "white", marginBottom: 12 }}>Stay quiet!</p>
-              <p style={{ fontSize: 16, color: "rgba(255,255,255,0.65)" }}>Everyone is deciding which answer is really yours.</p>
+            <div>
+              <p style={{ fontSize: 22, fontWeight: 900, color: "white", marginBottom: 4 }}>Stay quiet!</p>
+              <p style={{ fontSize: 15, color: "rgba(255,255,255,0.65)" }}>Everyone is deciding which answer is really yours.</p>
             </div>
+            <Section label="The answers">
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {shuffled.map(a => {
+                  const voteCount = roundVotes.filter(v => v.voted_for_player_id === a.player_id).length
+                  return (
+                    <div key={a.player_id} style={{ background: MID, padding: "14px 16px", display: "flex", alignItems: "flex-start", gap: 12 }}>
+                      <p style={{ fontSize: 16, fontWeight: 500, color: "white", lineHeight: 1.4, flex: 1 }}>{a.answer}</p>
+                      {voteCount > 0 && (
+                        <div style={{ flexShrink: 0, background: YELLOW, color: "#000", fontSize: 13, fontWeight: 900, padding: "3px 8px", marginTop: 2 }}>
+                          {voteCount}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </Section>
             <Section label="Waiting for votes…">
               <WaitingList players={players.filter(p => p.id !== myId)} doneIds={votedIds} doneLabel="Voted" waitLabel="Deciding…" />
             </Section>
