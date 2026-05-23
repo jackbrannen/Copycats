@@ -265,7 +265,7 @@ export default function LobbyPage({ params }) {
         </div>
 
         {/* Start */}
-        {hasJoined && isHost && (
+        {hasJoined && (
           <div style={{ marginTop: "auto", paddingTop: 24 }}>
             <div style={{ fontSize: 11, fontWeight: 800, color: "rgba(255,255,255,0.65)", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 10, textAlign: "center" }}>
               All players in?

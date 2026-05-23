@@ -150,6 +150,15 @@ export default function PlayPage({ params }) {
     return () => { clearInterval(poll); supabase.removeChannel(channel) }
   }, [code])
 
+  // Reset per-round input state when round advances
+  useEffect(() => {
+    setMyAnswer("")
+    setAnswerLoading(false)
+    setSelectedVote(null)
+    setVoteLoading(false)
+    setReadyLoading(false)
+  }, [game?.current_round])
+
   async function loadState() {
     const [{ data: g }, { data: ps }, { data: an }, { data: vs }] = await Promise.all([
       supabase.from("cc_games").select("*").eq("code", code).single(),
