@@ -25,6 +25,21 @@ function splitCode(code) {
   return [code.slice(0, Math.ceil(code.length / 2)), code.slice(Math.ceil(code.length / 2))]
 }
 
+const INSTRUCTIONS = `Players: 4+ · Time: 15+ min
+
+Each round, one player is the target and another is the questioner. The questioner writes a personal question directed at the target.
+
+The target answers truthfully. But everyone else also reads the question and writes what they think the target would say — trying to sound exactly like them.
+
+All answers are shuffled and shown anonymously. Everyone votes for which answer is really the target's.
+
+Points:
+- Guess the real answer → earn a point
+- Your fake fools someone → earn a point per person fooled
+- You write the exact same answer as someone else → you both earn a point
+
+Each player gets to be the target once. Highest score at the end wins.`
+
 function loadProfile() {
   try {
     const local = JSON.parse(localStorage.getItem("jackgames:profile") || "null")
@@ -72,6 +87,7 @@ export default function LobbyPage({ params }) {
   const [startError, setStartError] = useState("")
   const [confirmingStart, setConfirmingStart] = useState(false)
 
+  const [showInstructions, setShowInstructions] = useState(false)
   const [inviteCopied, setInviteCopied] = useState(false)
   const nudgeJoin = useSubmitNudge(username, !!myPlayerId)
 
@@ -188,12 +204,20 @@ export default function LobbyPage({ params }) {
             <span style={{ fontSize: 28, fontWeight: 900, color: "white", letterSpacing: "0.04em" }}>{codeB}</span>
           </div>
         </div>
-        <button
-          onClick={onInvite}
-          style={{ background: WARM_LIGHT, color: "white", fontSize: 15, fontWeight: 700, padding: "10px 18px" }}
-        >
-          {inviteCopied ? "Copied!" : "Invite"}
-        </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            onClick={() => setShowInstructions(true)}
+            style={{ flexShrink: 0, background: "rgba(255,255,255,0.15)", color: "white", fontSize: 15, fontWeight: 800, padding: "10px 14px" }}
+          >
+            ?
+          </button>
+          <button
+            onClick={onInvite}
+            style={{ background: WARM_LIGHT, color: "white", fontSize: 15, fontWeight: 700, padding: "10px 18px" }}
+          >
+            {inviteCopied ? "Copied!" : "Invite"}
+          </button>
+        </div>
       </div>
 
       <div style={{ flex: 1, padding: "24px 20px", display: "flex", flexDirection: "column", gap: 24, maxWidth: 480, width: "100%", margin: "0 auto" }}>
@@ -288,6 +312,26 @@ export default function LobbyPage({ params }) {
           </div>
         )}
       </div>
+
+      {showInstructions && (
+        <div
+          onClick={() => setShowInstructions(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 200, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 24, overflowY: "auto" }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ background: "#1A1A2E", width: "100%", maxWidth: 480, padding: "28px 24px", marginTop: 24 }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+              <div style={{ fontSize: 20, fontWeight: 900, color: "white" }}>How to Play</div>
+              <button onClick={() => setShowInstructions(false)} style={{ background: "rgba(255,255,255,0.15)", color: "white", fontSize: 18, fontWeight: 800, padding: "6px 12px" }}>✕</button>
+            </div>
+            <div style={{ fontSize: 15, color: "rgba(255,255,255,0.85)", lineHeight: 1.7, fontWeight: 400, whiteSpace: "pre-wrap" }}>
+              {INSTRUCTIONS}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Confirm start modal */}
       {confirmingStart && (
