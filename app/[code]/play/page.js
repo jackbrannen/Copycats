@@ -257,6 +257,7 @@ export default function PlayPage({ params }) {
   // Must be declared before early returns — Rules of Hooks
   const myAnswerRowEarly = answers.find(a => a.player_id === myId && a.round === game?.current_round)
   const nudgeAnswer = useSubmitNudge(myAnswer, !!myAnswerRowEarly)
+  const inlinePokeCooldownRef = useRef(0)
 
   if (!game || !myId) {
     return (
@@ -268,7 +269,6 @@ export default function PlayPage({ params }) {
 
   const me = players.find(p => p.id === myId)
 
-  const inlinePokeCooldownRef = useRef(0)
   async function sendInlinePoke(targetName) {
     if (!me) return
     if (Date.now() < inlinePokeCooldownRef.current) return
