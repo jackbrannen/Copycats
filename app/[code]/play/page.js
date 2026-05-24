@@ -186,6 +186,7 @@ export default function PlayPage({ params }) {
   const typingTimerRef = useRef(null)
   const [presenceState, setPresenceState] = useState({})
   const [showGameModal, setShowGameModal] = useState(false)
+  const [bonusMatchName, setBonusMatchName] = useState(null)
 
   useEffect(() => {
     const id = localStorage.getItem(`cc:${code}:playerId`)
@@ -401,6 +402,11 @@ export default function PlayPage({ params }) {
               </p>
               <BigQuestion question={roundQuestion} />
             </div>
+            {bonusMatchName && (
+              <div style={{ background: "#FBDF54", color: "#000", padding: "10px 16px", fontSize: 14, fontWeight: 800 }}>
+                Same answer as {bonusMatchName}! +1 bonus
+              </div>
+            )}
             {fakeAnswersSoFar.length > 0 ? (
               <Section label={`Fake answers coming in… (${fakeAnswersSoFar.length} of ${players.length - 1})`}>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -426,6 +432,7 @@ export default function PlayPage({ params }) {
       if (answerLoading || !myAnswer.trim()) return
       setAnswerLoading(true)
       setAnswerError("")
+      const myText = myAnswer.trim().toLowerCase()
       const { error } = await supabase.rpc("cc_submit_answer", {
         p_code: code,
         p_player_id: myId,
@@ -435,6 +442,16 @@ export default function PlayPage({ params }) {
       if (error) {
         setAnswerError(error.message || "Something went wrong.")
         setAnswerLoading(false)
+        return
+      }
+      const { data: freshAnswers } = await supabase
+        .from("cc_answers").select("player_id,answer")
+        .eq("game_code", code).eq("round", current_round)
+      const match = freshAnswers?.find(a => a.player_id !== myId && a.answer?.trim().toLowerCase() === myText)
+      if (match) {
+        const matchPlayer = players.find(p => p.id === match.player_id)
+        setBonusMatchName(matchPlayer?.name || "someone")
+        setTimeout(() => setBonusMatchName(null), 4000)
       }
     }
 
