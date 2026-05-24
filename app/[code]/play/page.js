@@ -247,7 +247,7 @@ export default function PlayPage({ params }) {
   }
 
   // ── PokeSystem (always mounted for notifications) ──────────────────────────
-  const pokeSystemNode = me ? (
+  const pokeSystemNode = (footer = null) => me ? (
     <PokeSystem
       colors={POKE_COLORS}
       roomCode={code}
@@ -256,7 +256,7 @@ export default function PlayPage({ params }) {
       playerDetails={players.map(p => ({ name: p.name, firstName: p.first_name, lastName: p.last_name }))}
       gamePhase={game?.phase}
       onResetToLobby={async () => { await supabase.rpc("cc_reset_to_lobby", { p_code: code }) }}
-    />
+    >{footer}</PokeSystem>
   ) : null
 
   if (!me) {
@@ -265,7 +265,7 @@ export default function PlayPage({ params }) {
       <div style={{ minHeight: "100dvh", background: BG, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <p style={{ color: "rgba(255,255,255,0.65)", fontSize: 18, fontWeight: 600 }}>Loading…</p>
       </div>
-        {pokeSystemNode}
+        {pokeSystemNode()}
       </>
     )
   }
@@ -357,7 +357,7 @@ export default function PlayPage({ params }) {
           </Section>
         </div>
       </div>
-        {pokeSystemNode}
+        {pokeSystemNode()}
       </>
     )
   }
@@ -489,7 +489,7 @@ export default function PlayPage({ params }) {
           </Section>
         </div>
       </div>
-        {pokeSystemNode}
+        {pokeSystemNode()}
       </>
     )
   }
@@ -607,7 +607,7 @@ export default function PlayPage({ params }) {
           />
         </div>
       </div>
-        {pokeSystemNode}
+        {pokeSystemNode()}
       </>
     )
   }
@@ -650,7 +650,7 @@ export default function PlayPage({ params }) {
       <>
       <div style={{ minHeight: "100dvh", background: BG, display: "flex", flexDirection: "column" }}>
         <TopBar>Round {current_round + 1} of {players.length} · Results</TopBar>
-        <div style={{ flex: 1, padding: "24px 20px", display: "flex", flexDirection: "column", gap: 24, maxWidth: 480, width: "100%", margin: "0 auto", paddingBottom: 100 }}>
+        <div style={{ flex: 1, padding: "24px 20px", display: "flex", flexDirection: "column", gap: 24, maxWidth: 480, width: "100%", margin: "0 auto", paddingBottom: BOTTOM_PAD }}>
           {/* Question context */}
           <p style={{ fontSize: 14, color: "rgba(255,255,255,0.65)", lineHeight: 1.5 }}>
             {roundQuestioner?.name} asked {roundTarget?.name}: "{roundQuestion}"
@@ -749,30 +749,12 @@ export default function PlayPage({ params }) {
           </Section>
         </div>
 
-        {/* Fixed bottom: ready up */}
-        <div style={{ position: "fixed", bottom: FOOTER_H, left: 0, right: 0, padding: "16px 20px", paddingBottom: "calc(16px + env(safe-area-inset-bottom))", background: BG, borderTop: `1px solid ${DARK}` }}>
-          {iReady ? (
-            <div style={{ textAlign: "center" }}>
-              <p style={{ fontSize: 15, color: "rgba(255,255,255,0.65)", fontWeight: 600 }}>
-                {readyCount} of {totalCount} ready — waiting for others…
-              </p>
-            </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <PrimaryBtn
-                onClick={markReady}
-                loading={readyLoading}
-                label={current_round + 1 < players.length ? "Next Round" : "See Final Scores"}
-                loadingLabel="…"
-              />
-              <p style={{ textAlign: "center", fontSize: 13, color: "rgba(255,255,255,0.5)", fontWeight: 600 }}>
-                {readyCount} of {totalCount} ready
-              </p>
-            </div>
-          )}
-        </div>
       </div>
-        {pokeSystemNode}
+        {pokeSystemNode(
+          iReady
+            ? <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.65)" }}>{readyCount} / {totalCount} ready…</div>
+            : <button onClick={markReady} disabled={readyLoading} style={{ flex: 1, height: "100%", background: YELLOW, color: "#000", fontSize: 16, fontWeight: 900 }}>{readyLoading ? "…" : current_round + 1 < players.length ? "Next Round" : "See Final Scores"}</button>
+        )}
       </>
     )
   }
@@ -828,7 +810,7 @@ export default function PlayPage({ params }) {
           </button>
         </div>
       </div>
-        {pokeSystemNode}
+        {pokeSystemNode()}
       </>
     )
   }
