@@ -438,7 +438,7 @@ export default function PlayPage({ params }) {
         p_answer: myAnswer.trim(),
       })
       if (error) {
-        setAnswerError("That answer was already submitted — try something different.")
+        setAnswerError(error.message || "Something went wrong.")
         setAnswerLoading(false)
       }
     }
@@ -526,6 +526,14 @@ export default function PlayPage({ params }) {
   if (phase === "voting") {
     const votedIds = roundVotes.map(v => v.voter_id)
     const votableAnswers = shuffled.filter(a => a.player_id !== myId)
+    // De-dup: collapse identical answers into one entry (first in shuffled order = canonical)
+    const seenVoteTexts = new Set()
+    const dedupedVotable = votableAnswers.filter(a => {
+      const key = a.answer.trim().toLowerCase()
+      if (seenVoteTexts.has(key)) return false
+      seenVoteTexts.add(key)
+      return true
+    })
 
     if (iAmTarget) {
       return (
@@ -602,7 +610,7 @@ export default function PlayPage({ params }) {
             <p style={{ fontSize: 14, color: "rgba(255,255,255,0.65)", marginBottom: 16 }}>"{roundQuestion}"</p>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {votableAnswers.map(a => {
+            {dedupedVotable.map(a => {
               const selected = selectedVote === a.player_id
               return (
                 <button
@@ -644,16 +652,37 @@ export default function PlayPage({ params }) {
   if (phase === "results") {
     const targetAnswer = roundAnswers.find(a => a.player_id === roundTarget?.id)
 
-    // Compute round deltas
+    // Compute round deltas (mirrors DB scoring logic)
+    const answerByPlayer = {}
+    roundAnswers.forEach(a => { answerByPlayer[a.player_id] = a.answer.trim().toLowerCase() })
+    const targetText = answerByPlayer[roundTarget?.id]
+
     const deltas = {}
     players.forEach(p => { deltas[p.id] = 0 })
     roundVotes.forEach(v => {
-      if (v.voted_for_player_id === roundTarget?.id) {
-        // Correct vote: voter gets +2
+      const votedText = answerByPlayer[v.voted_for_player_id]
+      const isCorrect = v.voted_for_player_id === roundTarget?.id ||
+        (votedText && targetText && votedText === targetText)
+      if (isCorrect) {
         deltas[v.voter_id] = (deltas[v.voter_id] ?? 0) + 2
       } else {
-        // Fooled: fake-answer writer gets +1
         deltas[v.voted_for_player_id] = (deltas[v.voted_for_player_id] ?? 0) + 1
+        // co-authors with same text also credited
+        if (votedText) {
+          players.forEach(p => {
+            if (p.id !== v.voted_for_player_id && answerByPlayer[p.id] === votedText && p.id !== roundTarget?.id) {
+              deltas[p.id] = (deltas[p.id] ?? 0) + 1
+            }
+          })
+        }
+      }
+    })
+    // Matching bonus
+    players.forEach(p => {
+      const myText = answerByPlayer[p.id]
+      if (!myText) return
+      if (players.some(other => other.id !== p.id && answerByPlayer[other.id] === myText)) {
+        deltas[p.id] = (deltas[p.id] ?? 0) + 1
       }
     })
 
@@ -734,9 +763,14 @@ export default function PlayPage({ params }) {
                 const isTargetPlayer = p.id === roundTarget?.id
                 let detail = ""
                 if (!isTargetPlayer) {
-                  if (roundVotes.find(v => v.voter_id === p.id && v.voted_for_player_id === roundTarget?.id)) {
-                    detail = "spotted the real answer"
-                  } else {
+                  const myVoteRow = roundVotes.find(v => v.voter_id === p.id)
+                  if (myVoteRow) {
+                    const myVotedText = answerByPlayer[myVoteRow.voted_for_player_id]
+                    const votedCorrect = myVoteRow.voted_for_player_id === roundTarget?.id ||
+                      (myVotedText && targetText && myVotedText === targetText)
+                    if (votedCorrect) detail = "spotted the real answer"
+                  }
+                  if (!detail) {
                     const fooled = roundVotes.filter(v => v.voted_for_player_id === p.id).length
                     if (fooled > 0) detail = `fooled ${fooled} ${fooled === 1 ? "person" : "people"}`
                   }
