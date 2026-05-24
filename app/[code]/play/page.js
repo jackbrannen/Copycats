@@ -254,6 +254,10 @@ export default function PlayPage({ params }) {
     )
   )
 
+  // Must be declared before early returns — Rules of Hooks
+  const myAnswerRowEarly = answers.find(a => a.player_id === myId && a.round === game?.current_round)
+  const nudgeAnswer = useSubmitNudge(myAnswer, !!myAnswerRowEarly)
+
   if (!game || !myId) {
     return (
       <div style={{ minHeight: "100dvh", background: BG, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -303,7 +307,6 @@ export default function PlayPage({ params }) {
   const roundVotes = votes.filter(v => v.round === current_round)
 
   const myAnswerRow = roundAnswers.find(a => a.player_id === myId)
-  const nudgeAnswer = useSubmitNudge(myAnswer, !!myAnswerRow)
   const myVoteRow = roundVotes.find(v => v.voter_id === myId)
 
   // Deterministic shuffle — same order on all clients for the same round
