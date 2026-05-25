@@ -593,15 +593,11 @@ export default function PlayPage({ params }) {
   if (phase === "voting") {
     const votedIds = roundVotes.map(v => v.voter_id)
     const myAnswerText = myAnswerRow?.answer?.trim().toLowerCase() ?? null
-    // Exclude own player_id AND own answer text (someone else may have written the same thing)
-    const votableAnswers = shuffled.filter(a => {
-      if (a.player_id === myId) return false
-      if (myAnswerText && a.answer.trim().toLowerCase() === myAnswerText) return false
-      return true
-    })
+    // Exclude own player_id only; same-text answers are shown but disabled (same as GoW)
+    const visibleAnswers = shuffled.filter(a => a.player_id !== myId)
     // De-dup: collapse identical answers into one entry (first in shuffled order = canonical)
     const seenVoteTexts = new Set()
-    const dedupedVotable = votableAnswers.filter(a => {
+    const dedupedVotable = visibleAnswers.filter(a => {
       const key = a.answer.trim().toLowerCase()
       if (seenVoteTexts.has(key)) return false
       seenVoteTexts.add(key)
@@ -684,7 +680,16 @@ export default function PlayPage({ params }) {
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {dedupedVotable.map(a => {
+              const isMyAnswer = myAnswerText && a.answer.trim().toLowerCase() === myAnswerText
               const selected = selectedVote === a.player_id
+              if (isMyAnswer) {
+                return (
+                  <div key={a.player_id} style={{ background: MID, padding: "18px 20px", opacity: 0.5 }}>
+                    <p style={{ fontSize: 17, fontWeight: 500, color: "white", lineHeight: 1.4 }}>{a.answer}</p>
+                    <p style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", marginTop: 4 }}>Your answer — can't vote for it</p>
+                  </div>
+                )
+              }
               return (
                 <button
                   key={a.player_id}
@@ -950,9 +955,13 @@ export default function PlayPage({ params }) {
               ))}
             </div>
           </Section>
-          <div>
-            <button onClick={() => setShowGameModal(true)}
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <button onClick={() => supabase.rpc("cc_reset_to_lobby", { p_code: code })}
               style={{ background: YELLOW, color: "#000", fontSize: 16, fontWeight: 900, padding: "14px 24px", width: "100%" }}>
+              Play Again
+            </button>
+            <button onClick={() => setShowGameModal(true)}
+              style={{ background: "rgba(255,255,255,0.15)", color: "white", fontSize: 16, fontWeight: 700, padding: "14px 24px", width: "100%" }}>
               Play Another Game
             </button>
           </div>
