@@ -25,21 +25,6 @@ function splitCode(code) {
   return [code.slice(0, Math.ceil(code.length / 2)), code.slice(Math.ceil(code.length / 2))]
 }
 
-const INSTRUCTIONS = `Players: 4+ · Time: 15+ min
-
-Each round, one player is the target and another is the questioner. The questioner writes a personal question directed at the target.
-
-The target answers truthfully. But everyone else also reads the question and writes what they think the target would say — trying to sound exactly like them.
-
-All answers are shuffled and shown anonymously. Everyone votes for which answer is really the target's.
-
-Points:
-- Guess the real answer → earn a point
-- Your fake fools someone → earn a point per person fooled
-- You write the exact same answer as someone else → you both earn a point
-
-Each player gets to be the target once. Highest score at the end wins.`
-
 function loadProfile() {
   try {
     const local = JSON.parse(localStorage.getItem("jackgames:profile") || "null")
@@ -89,7 +74,13 @@ export default function LobbyPage({ params }) {
 
   const [showInstructions, setShowInstructions] = useState(false)
   const [inviteCopied, setInviteCopied] = useState(false)
+  const [instructions, setInstructions] = useState("")
   const nudgeJoin = useSubmitNudge(username, !!myPlayerId)
+
+  useEffect(() => {
+    supabase.from("game_instructions").select("body").eq("game_key", "copycats").single()
+      .then(({ data }) => { if (data) setInstructions(data.body) })
+  }, [])
 
   useEffect(() => {
     const saved = localStorage.getItem(`cc:${code}:playerId`)
@@ -103,8 +94,8 @@ export default function LobbyPage({ params }) {
     }
 
     loadState()
-    let poll = setInterval(loadState, 5000)
-    function handleVisibility() { clearInterval(poll); if (!document.hidden) { loadState(); poll = setInterval(loadState, 5000) } }
+    let poll = setInterval(loadState, 1500)
+    function handleVisibility() { clearInterval(poll); if (!document.hidden) { loadState(); poll = setInterval(loadState, 1500) } }
     document.addEventListener("visibilitychange", handleVisibility)
     const channel = supabase.channel(`cc-lobby-${code}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "cc_players", filter: `game_code=eq.${code}` }, loadState)
@@ -327,7 +318,7 @@ export default function LobbyPage({ params }) {
               <button onClick={() => setShowInstructions(false)} style={{ background: "rgba(255,255,255,0.15)", color: "white", fontSize: 18, fontWeight: 800, padding: "6px 12px" }}>✕</button>
             </div>
             <div style={{ fontSize: 15, color: "rgba(255,255,255,0.85)", lineHeight: 1.7, fontWeight: 400, whiteSpace: "pre-wrap" }}>
-              {INSTRUCTIONS}
+              {instructions || "Loading…"}
             </div>
           </div>
         </div>
