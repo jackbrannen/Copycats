@@ -68,7 +68,7 @@ function PrimaryBtn({ onClick, disabled, loading, label, loadingLabel, nudge }) 
     <button
       onClick={onClick}
       disabled={disabled || loading}
-      style={{ background: YELLOW, color: "#000", fontSize: 20, fontWeight: 900, padding: "20px", width: "100%", animation: nudge ? "nudgePulse 1.5s ease-in-out infinite" : "none" }}
+      style={{ background: YELLOW, color: "#000", fontSize: 20, fontWeight: 900, padding: "20px", width: "100%", animation: nudge ? "nudgePulse 1.0s ease-in-out infinite" : "none" }}
     >
       {loading ? loadingLabel : label}
     </button>
@@ -242,6 +242,7 @@ export default function PlayPage({ params }) {
       supabase.from("cc_votes").select("*").eq("game_code", code),
     ])
     if (!g) { router.push(`/${code}`); return }
+    if (g.phase === "lobby") { router.replace(`/${code}`); return }
     setGame(g)
     setPlayers(ps ?? [])
     setAnswers(an ?? [])
@@ -410,31 +411,6 @@ export default function PlayPage({ params }) {
   if (phase === "answering") {
     const answeredIds = roundAnswers.map(a => a.player_id)
 
-    if (myAnswerRow) {
-      return (
-        <div style={{ minHeight: "100dvh", background: BG, display: "flex", flexDirection: "column" }}>
-          <TopBar>Round {current_round + 1} of {players.length}</TopBar>
-          <div style={{ flex: 1, padding: "24px 20px", display: "flex", flexDirection: "column", gap: 20, maxWidth: 480, width: "100%", margin: "0 auto" }}>
-            <div>
-              <p style={{ fontSize: 22, fontWeight: 900, color: "white", marginBottom: 12 }}>
-                {roundQuestioner?.name} asked {roundTarget?.name}…
-              </p>
-              <BigQuestion question={roundQuestion} />
-            </div>
-            {bonusMatchName && (
-              <div style={{ background: "#FBDF54", color: "#000", padding: "10px 16px", fontSize: 14, fontWeight: 800 }}>
-                Same answer as {bonusMatchName}! +1 bonus
-              </div>
-            )}
-            <p style={{ fontSize: 16, color: "rgba(255,255,255,0.65)" }}>Answers hidden until everyone is done.</p>
-            <Section label="Status">
-              <WaitingList players={players} doneIds={answeredIds} myPlayerId={myId} onPoke={sendInlinePoke} typingPlayerIds={typingPlayerIds} pokeCooldownActive={pokeCooldownActive} pokeJustSent={pokeJustSent} />
-            </Section>
-          </div>
-        </div>
-      )
-    }
-
     async function submitAnswer() {
       if (answerLoading || !myAnswer.trim()) return
       setAnswerLoading(true)
@@ -462,8 +438,77 @@ export default function PlayPage({ params }) {
       }
     }
 
+    // Target already submitted — show incoming answers live
+    if (iAmTarget && myAnswerRow) {
+      const incomingAnswers = roundAnswers.filter(a => a.player_id !== myId)
+      return (
+        <>
+        <div style={{ minHeight: "100dvh", background: BG, display: "flex", flexDirection: "column" }}>
+          <TopBar>Round {current_round + 1} of {players.length}</TopBar>
+          <div style={{ flex: 1, padding: "24px 20px", display: "flex", flexDirection: "column", gap: 20, maxWidth: 480, width: "100%", margin: "0 auto" }}>
+            <div>
+              <p style={{ fontSize: 22, fontWeight: 900, color: "white", marginBottom: 12 }}>
+                {roundQuestioner?.name} asked you…
+              </p>
+              <BigQuestion question={roundQuestion} />
+            </div>
+            <p style={{ fontSize: 15, color: "rgba(255,255,255,0.75)", lineHeight: 1.5 }}>
+              Watch the answers come in. Stay quiet for now!
+            </p>
+            {incomingAnswers.length > 0 && (
+              <Section label={`Answers so far (${incomingAnswers.length})`}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                  {incomingAnswers.map((a, i) => (
+                    <div key={a.player_id} style={{ background: MID, padding: "12px 16px", fontSize: 16, color: "white" }}>
+                      {a.answer}
+                    </div>
+                  ))}
+                </div>
+              </Section>
+            )}
+            <Section label="Waiting for…">
+              <WaitingList players={players} doneIds={answeredIds} myPlayerId={myId} onPoke={sendInlinePoke} typingPlayerIds={typingPlayerIds} pokeCooldownActive={pokeCooldownActive} pokeJustSent={pokeJustSent} />
+            </Section>
+          </div>
+        </div>
+          {pokeSystemNode()}
+        </>
+      )
+    }
+
+    // Non-target already submitted — answers hidden
+    if (myAnswerRow) {
+      return (
+        <>
+        <div style={{ minHeight: "100dvh", background: BG, display: "flex", flexDirection: "column" }}>
+          <TopBar>Round {current_round + 1} of {players.length}</TopBar>
+          <div style={{ flex: 1, padding: "24px 20px", display: "flex", flexDirection: "column", gap: 20, maxWidth: 480, width: "100%", margin: "0 auto" }}>
+            <div>
+              <p style={{ fontSize: 22, fontWeight: 900, color: "white", marginBottom: 12 }}>
+                {roundQuestioner?.name} asked {roundTarget?.name}…
+              </p>
+              <BigQuestion question={roundQuestion} />
+            </div>
+            {bonusMatchName && (
+              <div style={{ background: "#FBDF54", color: "#000", padding: "10px 16px", fontSize: 14, fontWeight: 800 }}>
+                Same answer as {bonusMatchName}! +1 bonus
+              </div>
+            )}
+            <p style={{ fontSize: 16, color: "rgba(255,255,255,0.65)" }}>Answers hidden until everyone is done.</p>
+            <Section label="Status">
+              <WaitingList players={players} doneIds={answeredIds} myPlayerId={myId} onPoke={sendInlinePoke} typingPlayerIds={typingPlayerIds} pokeCooldownActive={pokeCooldownActive} pokeJustSent={pokeJustSent} />
+            </Section>
+          </div>
+        </div>
+          {pokeSystemNode()}
+        </>
+      )
+    }
+
+    // Target hasn't submitted yet
     if (iAmTarget) {
       return (
+        <>
         <div style={{ minHeight: "100dvh", background: BG, display: "flex", flexDirection: "column" }}>
           <TopBar>Round {current_round + 1} of {players.length}</TopBar>
           <div style={{ flex: 1, padding: "24px 20px", display: "flex", flexDirection: "column", gap: 20, maxWidth: 480, width: "100%", margin: "0 auto" }}>
@@ -497,9 +542,12 @@ export default function PlayPage({ params }) {
             </Section>
           </div>
         </div>
+          {pokeSystemNode()}
+        </>
       )
     }
 
+    // Non-target, hasn't submitted yet
     return (
       <>
       <div style={{ minHeight: "100dvh", background: BG, display: "flex", flexDirection: "column" }}>
@@ -544,7 +592,13 @@ export default function PlayPage({ params }) {
 
   if (phase === "voting") {
     const votedIds = roundVotes.map(v => v.voter_id)
-    const votableAnswers = shuffled.filter(a => a.player_id !== myId)
+    const myAnswerText = myAnswerRow?.answer?.trim().toLowerCase() ?? null
+    // Exclude own player_id AND own answer text (someone else may have written the same thing)
+    const votableAnswers = shuffled.filter(a => {
+      if (a.player_id === myId) return false
+      if (myAnswerText && a.answer.trim().toLowerCase() === myAnswerText) return false
+      return true
+    })
     // De-dup: collapse identical answers into one entry (first in shuffled order = canonical)
     const seenVoteTexts = new Set()
     const dedupedVotable = votableAnswers.filter(a => {
@@ -762,19 +816,19 @@ export default function PlayPage({ params }) {
                     const isReal = group.playerIds.includes(roundTarget?.id)
                     const authors = group.playerIds.map(id => players.find(p => p.id === id)?.name).filter(Boolean)
                     const votersForGroup = roundVotes.filter(v => group.playerIds.includes(v.voted_for_player_id))
-                    const fooledCount = isReal ? 0 : votersForGroup.length
+                    const voterNames = votersForGroup.map(v => players.find(p => p.id === v.voter_id)?.name).filter(Boolean)
                     return (
                       <div key={group.key} style={{ background: isReal ? `${GREEN}33` : MID, padding: "14px 16px", borderLeft: isReal ? `4px solid ${GREEN}` : "4px solid transparent" }}>
                         <p style={{ fontSize: 16, fontWeight: 500, color: "white", lineHeight: 1.4, marginBottom: 6 }}>{group.answer}</p>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                           <span style={{ fontSize: 14, fontWeight: 700, color: isReal ? GREEN : YELLOW }}>{authors.join(" & ")}</span>
-                          {isReal && votersForGroup.length > 0 && (
-                            <span style={{ fontSize: 13, color: "rgba(255,255,255,0.65)" }}>· {votersForGroup.length} spotted it</span>
+                          {isReal && voterNames.length > 0 && (
+                            <span style={{ fontSize: 13, color: "rgba(255,255,255,0.65)" }}>· spotted by {voterNames.join(", ")}</span>
                           )}
-                          {!isReal && fooledCount > 0 && (
-                            <span style={{ fontSize: 13, color: "rgba(255,255,255,0.65)" }}>· fooled {fooledCount}</span>
+                          {!isReal && voterNames.length > 0 && (
+                            <span style={{ fontSize: 13, color: "rgba(255,255,255,0.65)" }}>· fooled {voterNames.join(", ")}</span>
                           )}
-                          {!isReal && fooledCount === 0 && (
+                          {!isReal && voterNames.length === 0 && (
                             <span style={{ fontSize: 13, color: "rgba(255,255,255,0.4)" }}>· no one fooled</span>
                           )}
                         </div>
@@ -792,18 +846,23 @@ export default function PlayPage({ params }) {
               {players.map(p => {
                 const d = deltas[p.id] ?? 0
                 const isTargetPlayer = p.id === roundTarget?.id
-                let detail = ""
+                const details = []
                 if (!isTargetPlayer) {
                   const myVoteRow = roundVotes.find(v => v.voter_id === p.id)
                   if (myVoteRow) {
                     const myVotedText = answerByPlayer[myVoteRow.voted_for_player_id]
                     const votedCorrect = myVoteRow.voted_for_player_id === roundTarget?.id ||
                       (myVotedText && targetText && myVotedText === targetText)
-                    if (votedCorrect) detail = "spotted the real answer"
+                    if (votedCorrect) details.push("spotted the real answer")
                   }
-                  if (!detail) {
-                    const fooled = roundVotes.filter(v => v.voted_for_player_id === p.id).length
-                    if (fooled > 0) detail = `fooled ${fooled} ${fooled === 1 ? "person" : "people"}`
+                  const fooledVoterNames = roundVotes.filter(v => v.voted_for_player_id === p.id).map(v => players.find(x => x.id === v.voter_id)?.name).filter(Boolean)
+                  if (fooledVoterNames.length > 0) details.push(`fooled ${fooledVoterNames.join(", ")}`)
+                  const myAnswerText = answerByPlayer[p.id]
+                  if (myAnswerText) {
+                    const matchedNames = players
+                      .filter(other => other.id !== p.id && answerByPlayer[other.id] === myAnswerText)
+                      .map(other => other.name)
+                    if (matchedNames.length > 0) details.push(`matched ${matchedNames.join(", ")}'s answer`)
                   }
                 }
                 return (
@@ -815,7 +874,7 @@ export default function PlayPage({ params }) {
                     </div>
                     <div style={{ background: MID, flex: 1, padding: "12px 16px" }}>
                       <span style={{ fontSize: 16, fontWeight: 700 }}>{p.name}</span>
-                      {!!detail && <span style={{ fontSize: 13, color: "rgba(255,255,255,0.65)", marginLeft: 8 }}>{detail}</span>}
+                      {details.length > 0 && <span style={{ fontSize: 13, color: "rgba(255,255,255,0.65)", marginLeft: 8 }}>{details.join(" · ")}</span>}
                     </div>
                   </div>
                 )
@@ -931,7 +990,7 @@ export default function PlayPage({ params }) {
     <div style={{ minHeight: "100dvh", background: BG, display: "flex", alignItems: "center", justifyContent: "center" }}>
       <p style={{ color: "rgba(255,255,255,0.65)", fontSize: 18, fontWeight: 600 }}>Loading…</p>
     </div>
-      {pokeSystemNode}
+      {pokeSystemNode()}
     </>
   )
 }
