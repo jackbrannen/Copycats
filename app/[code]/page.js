@@ -195,18 +195,18 @@ export default function LobbyPage({ params }) {
             <span style={{ fontSize: 28, fontWeight: 900, color: "white", letterSpacing: "0.04em" }}>{codeB}</span>
           </div>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button
-            onClick={() => setShowInstructions(true)}
-            style={{ flexShrink: 0, background: "rgba(255,255,255,0.15)", color: "white", fontSize: 15, fontWeight: 800, padding: "10px 14px" }}
-          >
-            ?
-          </button>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, flexShrink: 0, alignItems: "stretch" }}>
           <button
             onClick={onInvite}
             style={{ background: WARM_LIGHT, color: "white", fontSize: 15, fontWeight: 700, padding: "10px 18px" }}
           >
             {inviteCopied ? "Copied!" : "Invite"}
+          </button>
+          <button
+            onClick={() => setShowInstructions(true)}
+            style={{ background: "rgba(255,255,255,0.15)", color: "white", fontSize: 13, fontWeight: 800, padding: "10px 14px" }}
+          >
+            How to Play
           </button>
         </div>
       </div>
